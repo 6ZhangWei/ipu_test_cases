@@ -148,8 +148,8 @@ static int read_frame(void)
 			assert(buf.index < n_buffers);
 
 			fprintf(stderr, "\n%s call VIDIOC_QBUF\n", __func__);
-			fprintf(stderr, "BUF sequence is %d \n", buf.sequence);
-			fprintf(stderr, "Time val:  second is  %ld ,  microseconds is %ld \n", buf.timestamp.tv_sec, buf.timestamp.tv_usec);
+//			fprintf(stderr, "BUF sequence is %d \n", buf.sequence);
+//			fprintf(stderr, "Time val:  second is  %ld ,  microseconds is %ld \n", buf.timestamp.tv_sec, buf.timestamp.tv_usec);
 
 
 			process_image(buffers[buf.index].start, buf.bytesused);

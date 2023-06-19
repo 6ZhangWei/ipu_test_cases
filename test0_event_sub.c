@@ -17,7 +17,7 @@
 #include <linux/videodev2.h>
 
 
-
+#include <sys/poll.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <sched.h>
@@ -63,6 +63,60 @@ static int xioctl(int fh, int request, void *arg)
 }
 
 static int g_index = 0;
+
+
+static void test_event_deque(int fd)
+{
+	fprintf(stderr, "Enter %s\n", __func__);
+
+	struct pollfd fds[1];
+	struct v4l2_event event;
+
+	fds[0].fd = fd;
+	fds[0].events = POLLPRI;
+	{
+		printf(" poll ......\n");
+		if (poll(fds, 1, 2) < 0) {
+			printf("poll failed: \n");
+		}
+
+		if (fds[0].revents & POLLPRI) {
+			struct v4l2_event ev = {0};
+
+			if (ioctl(fds[0].fd, VIDIOC_DQEVENT, &ev) == 0) {
+				switch (ev.type) {
+				case V4L2_EVENT_SOURCE_CHANGE:
+					printf(" source change event\n");
+					// restart_pipeline();
+					break;
+				case V4L2_EVENT_MOTION_DET:
+					printf(" motion detection event \n");
+					break;
+				default:
+					printf("event type %d \n", ev.type);
+					break;
+				}
+			} else {
+				printf(" VIDIOC_DQEVENT failed: \n");
+			}
+		}
+	}
+
+	return;
+}
+
+static void test_event_unsubscrible(int fd)
+{
+	struct v4l2_event_subscription v4l2_event;
+	v4l2_event.type = V4L2_EVENT_FRAME_SYNC;
+	v4l2_event.id = 0;
+	if (-1 == xioctl(fd, VIDIOC_UNSUBSCRIBE_EVENT, &v4l2_event))
+		errno_exit("VIDIOC_SUB_EVENT");
+
+	printf("Success unsubscribe events.  \n");
+
+	return;
+}
 
 //process_image(数据指针，大小)
 static void process_image(const void *p, int size)
@@ -199,10 +253,12 @@ static int read_frame(void)
 
 static void mainloop(void)
 {
-	unsigned int count;
+	unsigned int count, i=0;
 
 	count = 100000;
 	fprintf(stderr, "Enter %s\n", __func__);
+
+	
 
 	while (count-- > 0) {
 		// sleep(2);
@@ -231,8 +287,15 @@ static void mainloop(void)
 			exit(EXIT_FAILURE);
 		}
 #endif
+	test_event_deque(fd);
 		read_frame();
 		/* EAGAIN - continue select loop. */
+		
+		i++;
+		if(i == 10)
+		{
+			test_event_unsubscrible(fd);
+		}
 
 	}
 }
@@ -452,7 +515,8 @@ static void init_userp(unsigned int buffer_size)
 	}
 }
 
-static void test_event(int fd){
+
+static void test_event_subscrible(int fd){
 	struct v4l2_event_subscription v4l2_event;
 	v4l2_event.type = V4L2_EVENT_FRAME_SYNC;
 	v4l2_event.id = 0;
@@ -463,14 +527,6 @@ static void test_event(int fd){
 		errno_exit("VIDIOC_SUB_EVENT");
 	
 	printf("SUccess subscribe events.  \n");
-
-
-
-	if (-1 == xioctl(fd, VIDIOC_UNSUBSCRIBE_EVENT, &v4l2_event))
-		errno_exit("VIDIOC_SUB_EVENT");
-
-	printf("Success unsubscribe events.  \n");
-
 
 	return;
 
@@ -570,7 +626,7 @@ Interval: Discrete 0.200s (5.000 fps)
 		errno_exit("VIDIOC_S_FMT");
 
 
-	test_event(fd);
+	test_event_subscrible(fd);
 	/* Buggy driver paranoia. */
 	// min = fmt.fmt.pix.width * 2;
 	// if (fmt.fmt.pix.bytesperline < min)
